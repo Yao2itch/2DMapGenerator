@@ -51,7 +51,8 @@ public class GeneratorMapWnd : EditorWindow
                 isGeneratedBtnClicked = GUILayout.Button(" 生成数据 ", GUILayout.Width(_generatorWnd.position.width * 0.3f), GUILayout.Height(35));
                 if (isGeneratedBtnClicked)
                 {
-                    getTiles();
+                    autoFillMaps();
+                    // getTiles();
                     isGeneratedBtnClicked = false;
                 }
             GUILayout.EndHorizontal();
@@ -59,6 +60,103 @@ public class GeneratorMapWnd : EditorWindow
         GUILayout.EndVertical();
     }
 
+    private void autoFillMaps()
+    {
+        if (_mapTilesRoot)
+        {
+            float top = 0.0f, bottom = 0.0f;
+            float left = 0.0f, right = 0.0f;
+            int childCount = _mapTilesRoot.transform.childCount;
+            if (childCount > 0)
+            {
+                Transform cTrans = _mapTilesRoot.transform.GetChild(0);
+                if (cTrans)
+                {
+                    left = right = cTrans.localPosition.x;
+                    top = bottom = cTrans.localPosition.y;
+                }
+            }
+            
+            Dictionary<int,Vector3> pointCaches = new Dictionary<int, Vector3>();
+            // 先找出四个角点
+            for (int i = 0; i < childCount; ++i)
+            {
+                Transform c = _mapTilesRoot.transform.GetChild(i);
+                if (c)
+                {
+                    if (left >= c.localPosition.x)
+                    {
+                        left = c.localPosition.x;
+                    }
+                    if (right <= c.localPosition.x)
+                    {
+                        right = c.localPosition.x;
+                    }
+                    if (top <= c.localPosition.y)
+                    {
+                        top = c.localPosition.y;
+                    }
+                    if (bottom >= c.localPosition.y)
+                    {
+                        bottom = c.localPosition.y;
+                    }
+                }
+            }
+            
+            int width  = (int) (right - left) / 2 + 1;
+            for (int i = 0; i < childCount; ++i)
+            {
+                Transform cTrans = _mapTilesRoot.transform.GetChild(i);
+                if (cTrans)
+                {
+                    float x = (cTrans.localPosition.x - left) / 2;
+                    float y = Math.Abs(cTrans.localPosition.y - top) / 2;
+                    int index = (int) (y * width + x);
+                    
+                    cTrans.name = string.Format("water_{0}", index);
+
+                    pointCaches[index] = new Vector3(x, y, 0);
+                }
+            }
+            
+            Vector3 leftTopPos = new Vector3( left, top, 0 );
+            GameObject tmplGObj = MapGenerator.getInstance().getTemplateObj();
+            if (tmplGObj)
+            {
+                int height = (int) (top - bottom) / 2 + 1;
+                for (int i = 0; i < height; ++i)
+                {
+                    for (int j = 0; j < width; ++j)
+                    {
+                        Vector3 pos = leftTopPos;
+                        pos.x += j * 2;
+                        pos.y -= i * 2;
+                        
+                        int index = (int) (i * width + j);
+                        if (!pointCaches.ContainsKey(index))
+                        {
+                            GameObject cloneTmplGObj = GameObject.Instantiate(tmplGObj);
+                            if (cloneTmplGObj)
+                            {
+                                cloneTmplGObj.name = string.Format("ClonedTile_{0}", index);
+                                cloneTmplGObj.transform.parent = _mapTilesRoot.transform;
+                                cloneTmplGObj.transform.localPosition = pos;
+                            }
+                        }
+                        else
+                        {
+                            Debug.LogWarning(string.Format(" ## Uni Output ## cls:GeneraterMapWnd func:autoFillMaps info: x:{0} y:{1}"
+                                ,pos.x,pos.y));
+                        }
+                    }
+                }
+            }
+            
+            Debug.Log(string.Format(" ## Uni Output ## cls:GeneraterMapWnd func:autoFillMaps info: left:{0} right:{1} top:{2} bottom:{3} width:{4} height:{5}"
+                                                ,left,right,top,bottom, (right - left), (bottom - top)));
+        }
+    }
+    
     private GameObject[] getTiles()
     {
         GameObject[] objs = null;
